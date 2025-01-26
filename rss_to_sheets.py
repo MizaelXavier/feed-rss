@@ -8,29 +8,28 @@ import pickle
 import time
 from datetime import datetime
 import uuid
+import os
+import json
+import base64
 
 # Escopo necessário para o Google Sheets
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 def get_google_credentials():
     creds = None
-    # Verifica se já existem tokens salvos
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
     
-    # Se não há credenciais válidas, solicita ao usuário que faça login
+    # No Railway, usaremos variáveis de ambiente
+    if os.getenv('GOOGLE_CREDENTIALS'):
+        creds_json = base64.b64decode(os.getenv('GOOGLE_CREDENTIALS')).decode('utf-8')
+        creds_dict = json.loads(creds_json)
+        creds = Credentials.from_authorized_user_info(creds_dict, SCOPES)
+    
+    # Se não há credenciais válidas ou estão expiradas
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        
-        # Salva as credenciais para a próxima execução
-        with open('token.pickle', 'wb') as token:
-            pickle.dump(creds, token)
+            raise Exception("Credenciais do Google não encontradas ou inválidas")
     
     return creds
 
@@ -119,9 +118,12 @@ def process_feed(rss_url):
 def main():
     print("Iniciando automação RSS para Google Sheets...")
     
-    # Solicita as informações necessárias ao usuário
-    rss_url = input("Digite a URL do feed RSS: ")
-    spreadsheet_id = input("Digite o ID da planilha do Google Sheets: ")
+    # Obtém as variáveis de ambiente
+    rss_url = os.getenv('RSS_URL')
+    spreadsheet_id = os.getenv('SPREADSHEET_ID')
+    
+    if not rss_url or not spreadsheet_id:
+        raise Exception("RSS_URL e SPREADSHEET_ID devem ser configurados nas variáveis de ambiente")
     
     print("\nAutenticando com o Google Sheets...")
     creds = get_google_credentials()
@@ -129,7 +131,6 @@ def main():
     
     print("\nMonitorando o feed RSS...")
     print("O script irá verificar novos vídeos a cada 5 minutos.")
-    print("Para interromper o monitoramento, pressione Ctrl+C\n")
     processed_entries = set()
     
     while True:

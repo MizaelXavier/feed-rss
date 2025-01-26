@@ -1,0 +1,1 @@
+worker: python rss_to_sheets.py 
