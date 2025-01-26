@@ -20,9 +20,20 @@ def get_google_credentials():
     
     # No Railway, usaremos variáveis de ambiente
     if os.getenv('GOOGLE_CREDENTIALS'):
-        creds_json = base64.b64decode(os.getenv('GOOGLE_CREDENTIALS')).decode('utf-8')
-        creds_dict = json.loads(creds_json)
-        creds = Credentials.from_authorized_user_info(creds_dict, SCOPES)
+        try:
+            # Tenta primeiro como JSON direto
+            creds_dict = json.loads(os.getenv('GOOGLE_CREDENTIALS'))
+            creds = Credentials.from_authorized_user_info(creds_dict, SCOPES)
+        except json.JSONDecodeError:
+            try:
+                # Se falhar, tenta como base64
+                creds_json = base64.b64decode(os.getenv('GOOGLE_CREDENTIALS'))
+                creds_dict = pickle.loads(creds_json)
+                if isinstance(creds_dict, Credentials):
+                    creds = creds_dict
+            except Exception as e:
+                print(f"Erro ao decodificar credenciais: {str(e)}")
+                raise Exception("Credenciais do Google não encontradas ou inválidas")
     
     # Se não há credenciais válidas ou estão expiradas
     if not creds or not creds.valid:

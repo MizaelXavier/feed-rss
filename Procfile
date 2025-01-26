@@ -1,1 +1,1 @@
-worker: python rss_to_sheets.py 
+web: streamlit run app.py 
